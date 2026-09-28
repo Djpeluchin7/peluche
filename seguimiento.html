@@ -1,161 +1,221 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Peluche - Seguimiento Seguro</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<style>
-body { margin: 0; font-family: 'Helvetica Neue', Arial, sans-serif; background: #0f172a; color: #f8fafc; }
-header { background: #1e293b; color: white; padding: 20px; text-align: center; border-bottom: 1px solid #334155; }
-header h1 { margin: 0; font-size: 20px; color: #ff00bf; }
-#map { height: calc(100vh - 240px); width: 100%; }
-.trip-card { background: #1e293b; padding: 20px; position: relative; z-index: 1000; border-top-left-radius: 16px; border-top-right-radius: 16px; border-top: 1px solid #334155; }
-.status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; text-transform: uppercase; margin-bottom: 8px; }
-.status-buscando { background: #78350f; color: #fde68a; }
-.status-en_curso { background: #14532d; color: #4ade80; }
-.status-finalizado { background: #334155; color: #cbd5e1; }
-.driver-info { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; border-top: 1px solid #334155; padding-top: 12px; }
-.driver-details h3 { margin: 0; font-size: 16px; color: #f8fafc; }
-.driver-details p { margin: 2px 0 0 0; font-size: 13px; color: #94a3b8; }
-.call-btn { background: #22c55e; color: white; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 13px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peluche - Seguimiento Seguro</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Tailwind CSS para componentes rápidos -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; font-family: 'Helvetica Neue', Arial, sans-serif; background: #0f172a; color: #f8fafc; }
+        header { background: #1e293b; color: white; padding: 16px; text-align: center; border-bottom: 1px solid #334155; }
+        header h1 { margin: 0; font-size: 18px; color: #ffffff; font-weight: bold; }
+        
+        /* Contenedor del mapa dinámico (Leaflet por defecto, opción de Iframe integrada) */
+        #mapContainer { height: calc(100vh - 230px); width: 100%; position: relative; background: #0f172a; }
+        #map { height: 100%; width: 100%; z-index: 1; }
+        #googleIframe { height: 100%; width: 100%; border: 0; display: none; position: absolute; top: 0; left: 0; z-index: 2; }
+
+        .trip-card { background: #1e293b; padding: 18px; position: relative; z-index: 10; border-top-left-radius: 20px; border-top-right-radius: 20px; border-top: 1px solid #334155; box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.3); }
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 6px; }
+        .status-buscando { background: #78350f; color: #fde68a; }
+        .status-en_curso { background: #14532d; color: #4ade80; }
+        .driver-info { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; border-top: 1px solid #334155; padding-top: 12px; }
+        .driver-details h3 { margin: 0; font-size: 15px; color: #f8fafc; font-weight: 600; }
+        .driver-details p { margin: 2px 0 0 0; font-size: 12px; color: #94a3b8; }
+        .call-btn { background: #22c55e; color: white; padding: 8px 14px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 12px; transition: background 0.2s; }
+        .call-btn:hover { background: #16a34a; }
+        
+        /* Botón flotante para alternar entre Leaflet (Fluido) y Google Maps Iframe */
+        .map-toggle-btn { position: absolute; top: 15px; right: 15px; z-index: 1000; background: rgba(30, 41, 59, 0.9); color: #cbd5e1; border: 1px solid #475569; padding: 6px 12px; border-radius: 8px; font-size: 11px; cursor: pointer; backdrop-filter: blur(4px); }
+    </style>
 </head>
 <body>
 
-<header>
-  <h1>Peluche Live Tracking</h1>
+<header>  
+    <h1>Peluche Live Tracking</h1>
 </header>
 
-<div id="map"></div>
-
-<div class="trip-card">
-  <div id="statusBadge" class="status-badge status-buscando">Cargando viaje...</div>
-  <div id="infoDestino" style="font-size: 14px; color: #94a3b8; margin-bottom: 5px;">Destino: Cargando...</div>
-  <div id="infoTarifa" style="font-size: 13px; color: #64748b; margin-bottom: 5px;">Tarifa estimada: --</div>
-  
-  <div class="driver-info">
-    <div class="driver-details">
-      <h3 id="driverName">Asignando conductor</h3>
-      <p id="driverPhone">Espera un momento...</p>
-    </div>
-    <div id="actionContainer"></div>
-  </div>
+<!-- Contenedor del Mapa con opción Híbrida -->
+<div id="mapContainer">
+    <!-- Botón para cambiar dinámicamente a Iframe de Google Maps si el usuario lo prefiere -->
+    <button onclick="alternarModoMapa()" id="toggleMapBtn" class="map-toggle-btn">🗺️ Usar Google Maps</button>
+    
+    <!-- Mapa Leaflet principal (Fluido) -->
+    <div id="map"></div>
+    
+    <!-- Iframe de Google Maps alternativo (Basado en tu código de referencia con saddr/daddr) -->
+    <iframe id="googleIframe" allowfullscreen="" loading="lazy"></iframe>
 </div>
 
+<div class="trip-card">  
+    <div id="statusBadge" class="status-badge status-buscando">Cargando viaje...</div>  
+    <div id="infoDestino" style="font-size: 13px; color: #94a3b8; margin-bottom: 4px;">Destino: Cargando...</div>  
+    <div id="infoTarifa" style="font-size: 12px; color: #64748b; margin-bottom: 4px;">Tarifa estimada: --</div>    
+    <div class="driver-info">    
+        <div class="driver-details">      
+            <h3 id="driverName">Asignando conductor</h3>      
+            <p id="driverPhone">Espera un momento...</p>    
+        </div>    
+        <div id="actionContainer"></div>  
+    </div>
+</div>
+
+<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const _b64url = "aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J3ck82Mjl4bURxTHVfZ3BxbXJVN2xJc042Z3JlVkpjMGJhT1hCRGNYMFNBU0k3YzFwbmwzTkRRT2Y4dEVWUFJnSFl4QS9leGVj"; 
-const WEB_APP_URL = atob(_b64url);
+    // Decodificación de tu URL de Apps Script
+    const _b64url = "aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J3ck82Mjl4bURxTHVfZ3BxbXJVN2xJc042Z3JlVkpjMGJhT1hCRGNYMFNBU0k3YzFwbmwzTkRRT2Y4dEVWUFJnSFl4QS9leGVj"; 
+    const WEB_APP_URL = atob(_b64url);
 
-let map;
-let markerOrigen = null;
-let markerDriver = null;
-let routeLine = null;
+    let map;
+    let markerOrigen = null;
+    let markerDriver = null;
+    let routeLine = null;
+    let usaIframeGoogle = false; // Estado del modo híbrido
 
-const urlParams = new URLSearchParams(window.location.search);
-const viajeToken = urlParams.get('token');
+    const urlParams = new URLSearchParams(window.location.search);
+    const viajeToken = urlParams.get('token');
 
-window.onload = function() {
-  map = L.map('map').setView([13.71053, -89.1847517], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    window.onload = function() {  
+        // Inicializar Leaflet centrado por defecto en El Salvador
+        map = L.map('map', { zoomControl: false }).setView([13.71053, -89.1847517], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-  if(!viajeToken) {
-    mostrarPantallaBloqueada("Enlace No Válido", "Este enlace no contiene un token de seguridad permitido.");
-    return;
-  }
-
-  obtenerDetallesViaje();
-  setInterval(obtenerDetallesViaje, 5000);
-};
-
-function obtenerDetallesViaje() {
-  fetch(WEB_APP_URL + "?action=obtenerViajePorToken&token=" + viajeToken)
-    .then(res => res.json())
-    .then(res => {
-      if(res.status === 'success' && res.viaje) {
-        actualizarInterfaz(res.viaje);
-      } else if(res.status === 'expired') {
-        mostrarPantallaBloqueada("🔒 Enlace Expirado", res.message);
-      } else {
-        mostrarPantallaBloqueada("❌ Viaje No Encontrado", "El viaje ya no existe o el token es incorrecto.");
-      }
-    })
-    .catch(err => console.error("Error de sincronización:", err));
-}
-
-function mostrarPantallaBloqueada(titulo, mensaje) {
-  document.body.innerHTML = `
-    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#0f172a; color:white; text-align:center; padding:20px;">
-      <h2 style="color:#ff00bf; margin-bottom:10px;">${titulo}</h2>
-      <p style="color:#94a3b8; max-width:400px;">${mensaje}</p>
-    </div>`;
-}
-
-function actualizarInterfaz(v) {
-  let badge = document.getElementById('statusBadge');
-  
-  if(v.estado === "BUSCANDO") {
-    badge.className = "status-badge status-buscando";
-    badge.innerText = "Buscando conductor cercano...";
-  } else if(v.estado === "EN_CURSO") {
-    badge.className = "status-badge status-en_curso";
-    badge.innerText = "¡Conductor en camino!";
-  }
-
-  document.getElementById('infoDestino').innerText = "Destino: " + (v.destinoTexto || "No especificado");
-  document.getElementById('infoTarifa').innerText = "Tarifa estimada: " + (v.tarifa || "$3.50");
-  
-  if(v.driverNombre) {
-    document.getElementById('driverName').innerText = v.driverNombre;
-    document.getElementById('driverPhone').innerText = "Tel: " + (v.driverTelefono || "N/A");
-    if(v.driverTelefono) {
-      let telLimpio = String(v.driverTelefono).replace(/\D/g, '');
-      document.getElementById('actionContainer').innerHTML = `<a href="https://wa.me/${telLimpio}" class="call-btn" target="_blank">💬 Chat Driver</a>`;
-    }
-  }
-
-  let oLat = parseFloat(v.origenLat);
-  let oLng = parseFloat(v.origenLng);
-
-  if(!isNaN(oLat) && !isNaN(oLng) && !markerOrigen) {
-    markerOrigen = L.marker([oLat, oLng], {
-      icon: L.divIcon({ className: 'origin-icon', html: '<div style="font-size: 24px; text-align: center;">📍</div>', iconSize: [30, 30] })
-    }).addTo(map).bindPopup("Tu punto de recogida");
-  }
-
-  if(v.driverUbicacion) {
-    let coordsDriver = v.driverUbicacion.split(',');
-    if(coordsDriver.length === 2) {
-      let cLat = parseFloat(coordsDriver[0]);
-      let cLng = parseFloat(coordsDriver[1]);
-
-      if(!isNaN(cLat) && !isNaN(cLng)) {
-        if(!markerDriver) {
-          markerDriver = L.marker([cLat, cLng], {
-            icon: L.divIcon({ className: 'driver-icon', html: '<div style="font-size: 30px; text-align: center;">🚗</div>', iconSize: [35, 35], iconAnchor: [17, 17] })
-          }).addTo(map).bindPopup("Conductor: " + v.driverNombre);
-        } else {
-          markerDriver.setLatLng([cLat, cLng]);
+        if(!viajeToken) {    
+            mostrarPantallaBloqueada("Enlace No Válido", "Este enlace no contiene un token de seguridad permitido.");    
+            return;  
         }
 
-        fetch(`https://router.project-osrm.org/route/v1/driving/${cLng},${cLat};${oLng},${oLat}?overview=full&geometries=geojson`)
-          .then(response => response.json())
-          .then(data => {
-            if(data.routes && data.routes.length > 0) {
-              let coords = data.routes[0].geometry.coordinates;
-              let latLngs = coords.map(c => [c[1], c[0]]);
-              if(routeLine) map.removeLayer(routeLine);
-              routeLine = L.polyline(latLngs, { color: '#ff00bf', weight: 5, opacity: 0.8 }).addTo(map);
-            }
-          })
-          .catch(err => console.log("Error OSRM"));
+        obtenerDetallesViaje();
+        
+        // Intervalo optimizado exactamente a 25 segundos para evitar saturación y parpadeos molestos
+        setInterval(obtenerDetallesViaje, 25000);
+    };
 
-        map.fitBounds([[oLat, oLng], [cLat, cLng]], { padding: [60, 60], maxZoom: 16 });
-      }
+    // Función para alternar visualmente entre el mapa fluido de Leaflet y el Iframe de Google Maps
+    function alternarModoMapa() {
+        usaIframeGoogle = !usaIframeGoogle;
+        const iframeElem = document.getElementById('googleIframe');
+        const leafletElem = document.getElementById('map');
+        const btnElem = document.getElementById('toggleMapBtn');
+
+        if (usaIframeGoogle) {
+            leafletElem.style.display = 'none';
+            iframeElem.style.display = 'block';
+            btnElem.innerText = "⚡ Usar Mapa Fluido (Leaflet)";
+        } else {
+            iframeElem.style.display = 'none';
+            leafletElem.style.display = 'block';
+            btnElem.innerText = "🗺️ Usar Google Maps";
+            setTimeout(() => { map.invalidateSize(); }, 200); // Recalcular capas de Leaflet
+        }
     }
-  }
-}
+
+    function obtenerDetallesViaje() {  
+        fetch(WEB_APP_URL + "?action=obtenerViajePorToken&token=" + viajeToken)    
+            .then(res => res.json())    
+            .then(res => {      
+                if(res.status === 'success' && res.viaje) {        
+                    actualizarInterfaz(res.viaje);      
+                } else if(res.status === 'expired') {        
+                    mostrarPantallaBloqueada("🔒 Enlace Expirado", res.message);      
+                } else {        
+                    mostrarPantallaBloqueada("❌ Viaje No Encontrado", "El viaje ya no existe o el token es incorrecto.");      
+                }    })    
+            .catch(err => console.error("Error de sincronización:", err));
+    }
+
+    function mostrarPantallaBloqueada(titulo, mensaje) {  
+        document.body.innerHTML = `    
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#0f172a; color:white; text-align:center; padding:20px;">      
+                <h2 style="color:#ff00bf; margin-bottom:10px;">${titulo}</h2>      
+                <p style="color:#94a3b8; max-width:400px;">${mensaje}</p>    
+            </div>`;
+    }
+
+    function actualizarInterfaz(v) {  
+        let badge = document.getElementById('statusBadge');    
+        if(v.estado === "BUSCANDO") {    
+            badge.className = "status-badge status-buscando";    
+            badge.innerText = "Buscando conductor cercano...";  
+        } else if(v.estado === "EN_CURSO") {    
+            badge.className = "status-badge status-en_curso";    
+            badge.innerText = "¡Conductor en camino!";  
+        }
+
+        document.getElementById('infoDestino').innerText = "Destino: " + (v.destinoTexto || "No especificado");  
+        document.getElementById('infoTarifa').innerText = "Tarifa estimada: " + (v.tarifa || "$2.00");    
+
+        if(v.driverNombre) {    
+            document.getElementById('driverName').innerText = v.driverNombre;    
+            document.getElementById('driverPhone').innerText = "Tel: " + (v.driverTelefono || "N/A");    
+            if(v.driverTelefono) {      
+                let telLimpio = String(v.driverTelefono).replace(/\D/g, '');      
+                document.getElementById('actionContainer').innerHTML = `<a href="https://wa.me/${telLimpio}" class="call-btn" target="_blank">💬 Chat Driver</a>`;    
+            }  
+        }
+
+        let oLat = parseFloat(v.origenLat);  
+        let oLng = parseFloat(v.origenLng);
+
+        // Validar si tenemos coordenadas válidas del origen / destino
+        if(!isNaN(oLat) && !isNaN(oLng) && !markerOrigen) {    
+            markerOrigen = L.marker([oLat, oLng], {      
+                icon: L.divIcon({ className: 'origin-icon', html: '<div style="font-size: 22px; text-align: center;">📍</div>', iconSize: [30, 30] })    
+            }).addTo(map).bindPopup("Tu punto de recogida");  
+        }
+
+        if(v.driverUbicacion) {    
+            let coordsDriver = v.driverUbicacion.split(',');    
+            if(coordsDriver.length === 2) {      
+                let cLat = parseFloat(coordsDriver[0]);      
+                let cLng = parseFloat(coordsDriver[1]);
+
+                if(!isNaN(cLat) && !isNaN(cLng)) {        
+                    
+                    // 1. Actualización si el usuario eligió el modo Iframe de Google Maps con la lógica saddr/daddr
+                    if (usaIframeGoogle) {
+                        const googleIframe = document.getElementById('googleIframe');
+                        // Construimos la URL usando las variables del conductor y del origen como referencia de ruta
+                        const origenDriver = `${cLat},${cLng}`;
+                        const destinoRecogida = `${oLat},${oLng}`;
+                        const nuevaUrlIframe = `https://maps.google.com/maps?saddr=${origenDriver}&daddr=${destinoRecogida}&output=embed`;
+                        
+                        if (googleIframe.src !== nuevaUrlIframe) {
+                            googleIframe.src = nuevaUrlIframe;
+                        }
+                    } 
+                    
+                    // 2. Actualización si está usando el mapa fluido predeterminado (Leaflet + OSRM)
+                    else {
+                        if(!markerDriver) {          
+                            markerDriver = L.marker([cLat, cLng], {            
+                                icon: L.divIcon({ className: 'driver-icon', html: '<div style="font-size: 28px; text-align: center;">🚗</div>', iconSize: [35, 35], iconAnchor: [17, 17] })          
+                            }).addTo(map).bindPopup("Conductor: " + v.driverNombre);        
+                        } else {          
+                            markerDriver.setLatLng([cLat, cLng]);        
+                        }
+
+                        fetch(`https://router.project-osrm.org/route/v1/driving/${cLng},${cLat};${oLng},${oLat}?overview=full&geometries=geojson`)          
+                            .then(response => response.json())          
+                            .then(data => {            
+                                if(data.routes && data.routes.length > 0) {              
+                                    let coords = data.routes[0].geometry.coordinates;              
+                                    let latLngs = coords.map(c => [c[1], c[0]]);              
+                                    if(routeLine) map.removeLayer(routeLine);              
+                                    routeLine = L.polyline(latLngs, { color: '#d11b15', weight: 4, opacity: 0.8 }).addTo(map);            
+                                }          })          
+                            .catch(err => console.log("Error OSRM"));
+
+                        map.fitBounds([[oLat, oLng], [cLat, cLng]], { padding: [50, 50], maxZoom: 16 });
+                    }
+                }    
+            }  
+        }
+    }
 </script>
 </body>
 </html>
